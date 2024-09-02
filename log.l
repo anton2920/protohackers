@@ -21,7 +21,7 @@ Logf(Level level, byte *format, void *argp)
 {
 	byte buffer[1024];
 	byte date[100];
-	byte *end;
+	byte * end;
 	Tm * tm;
 	int	len;
 
@@ -52,6 +52,7 @@ Logf(Level level, byte *format, void *argp)
 		break;
 	}
 }
+
 
 void
 Debugf(byte *format, ...)

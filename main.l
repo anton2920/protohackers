@@ -11,8 +11,8 @@ ServerWorker(EventQueue *q)
 
 	while (1) {
 		Event events[64];
-		int nbytes;
-		int i, n;
+		int	nbytes;
+		int	i, n;
 
 		n = q->GetEvents(events, ArrayLength(events));
 		if (n < 0) {
@@ -21,7 +21,7 @@ ServerWorker(EventQueue *q)
 		}
 
 		for (i = 0; i < n; ++i) {
-			Event *event;
+			Event * event;
 			event = &events[i];
 
 			if (event->Flags & EV_EOF) {
@@ -50,9 +50,8 @@ ServerWorker(EventQueue *q)
 void
 main()
 {
-	EventQueue qs[NWORKERS];
-	EventQueue q;
-	int i, l, ret, quit;
+	EventQueue qs[NWORKERS], q;
+	int	i, l, ret, quit;
 
 	// SetLevel(LevelDebug);
 	fmtinstall('A', Addrconv);
@@ -100,7 +99,7 @@ main()
 		}
 
 		for (i = 0; i < n; ++i) {
-			Event *event;
+			Event * event;
 			event = &events[i];
 
 			Debugf("Got event %d", event->Type);
