@@ -1,5 +1,10 @@
 #define ArrayLength(arr) sizeof(arr) / sizeof((arr)[0])
 
+enum bool {
+	false,
+	true,
+};
+
 
 /* event.l */
 enum Request {
@@ -31,9 +36,10 @@ adt Event
 	int	EndOfFile(*Event);
 };
 
+
 adt EventQueue
 {
-	int kq;
+	int	kq;
 
 	int	Init(*EventQueue);
 	int	AddSocket(*EventQueue, int, Request, Trigger, void *);
@@ -42,7 +48,69 @@ adt EventQueue
 	int	Close(*EventQueue);
 };
 
+
 int	Eventconv(Printspec*);
+
+/* json.l */
+typedef aggr JsonValue;
+
+enum JsonValueType {
+	JsonNone,
+	JsonNull,
+	JsonBoolean,
+	JsonInteger,
+	JsonReal,
+	JsonString,
+	JsonObj,
+	JsonArr,
+};
+
+aggr JsonArray
+{
+	JsonValue *Values;
+	int	Len;
+	int	Cap;
+};
+
+
+aggr JsonObject
+{
+	byte * *Keys;
+	JsonValue * Values;
+	int	Len;
+	int	Cap;
+};
+
+
+aggr JsonValue
+{
+	JsonValueType Type;
+	union
+	 {
+		bool Boolean;
+		int	Integer;
+		float	Real;
+		byte * String;
+		JsonObject Object;
+		JsonArray Array;
+	};
+};
+
+
+aggr Json
+{
+	JsonValueType Type;
+	union
+	 {
+		JsonObject Object;
+		JsonArray Array;
+	};
+};
+
+
+int	ParseJson(byte*, int, Json*);
+void	FreeJson(Json*);
+int	Jsonconv(Printspec*);
 
 /* log.l */
 enum Level {
