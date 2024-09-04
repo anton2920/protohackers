@@ -18,17 +18,17 @@ enum EventType {
 	EventSignal = EVFILT_SIGNAL,
 };
 
-aggr Event
+adt Event
 {
-	uint	Identifier;
-	sint	Type;
-	usint	Flags;
-	uint	Fflags;
-	uint	_;
-	int	Data1;
-	int	Data2;
-	void	*UserData;
-	uint	_[9];
+	extern uint	Identifier;
+	extern sint	Type;
+	extern usint	Flags;
+	extern uint	Fflags;
+	extern int	Data[2];
+	extern void	*UserData;
+	extern uint	_[8];
+
+	int	EndOfFile(*Event);
 };
 
 adt EventQueue
@@ -41,6 +41,8 @@ adt EventQueue
 	int	GetEvents(*EventQueue, Event*, int);
 	int	Close(*EventQueue);
 };
+
+int	Eventconv(Printspec*);
 
 /* log.l */
 enum Level {

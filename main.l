@@ -3,15 +3,23 @@
 
 #define NWORKERS	5
 
+intern int	Pids[NWORKERS];
+intern int	CurrentPid;
+intern Lock	PidsLock;
+
 
 void
 ServerWorker(EventQueue *q)
 {
 	byte buffer[1024];
 
+	PidsLock.lock();
+	Pids[CurrentPid++] = getpid();
+	PidsLock.unlock();
+
 	while (1) {
 		Event events[64];
-		int	nbytes;
+		int	bytesRead;
 		int	i, n;
 
 		n = q->GetEvents(events, ArrayLength(events));
@@ -24,23 +32,35 @@ ServerWorker(EventQueue *q)
 			Event * event;
 			event = &events[i];
 
-			if (event->Flags & EV_EOF) {
-				continue;
+			Debugf("[worker]: Got event %E", event);
+
+			if (event->Data[0] > 0) {
+				bytesRead = 0;
+
+				switch (event->Type) {
+				case EventRead:
+					while (bytesRead < event->Data[0]) {
+						int	nbytes;
+
+						nbytes = read(event->Identifier, buffer, sizeof buffer);
+						if (nbytes < 0) {
+							Errorf("Failed to read from client: %r");
+							continue 2;
+						}
+						bytesRead += nbytes;
+
+						nbytes = write(event->Identifier, buffer, nbytes);
+						if (nbytes < 0) {
+							Warnf("Failed to write to client: %r");
+						}
+					}
+					break;
+				}
 			}
 
-			switch (event->Type) {
-			case EventRead:
-				nbytes = read(event->Identifier, buffer, sizeof buffer);
-				if (nbytes < 0) {
-					Errorf("Failed to read from client: %r");
-					continue;
-				}
-
-				nbytes = write(event->Identifier, buffer, nbytes);
-				if (nbytes < 0) {
-					Warnf("Failed to write to client: %r");
-				}
-				break;
+			if (event->EndOfFile()) {
+				close(event->Identifier);
+				continue;
 			}
 		}
 	}
@@ -51,15 +71,22 @@ void
 main()
 {
 	EventQueue qs[NWORKERS], q;
-	int	i, l, ret, quit;
+	int	i, l, ret, quit, rr;
 
 	// SetLevel(LevelDebug);
 	fmtinstall('A', Addrconv);
+	fmtinstall('E', Eventconv);
 
 	l = TCPListen(INADDR_ANY, 12345, 128);
 	check l >= 0, "failed to listen on TCP socket";
 
 	Infof("Listening on 0.0.0.0:12345...");
+
+	for (i = 0; i < NWORKERS; ++i) {
+		ret = qs[i].Init();
+		check ret >= 0, "failed to initialize event queue for worker";
+		proc ServerWorker(&qs[i]);
+	}
 
 	ret = q.Init();
 	check ret >= 0, "failed to initialize event queue";
@@ -79,13 +106,8 @@ main()
 	ret = q.AddSignal(SIGINT);
 	check ret >= 0, "failed to add SIGINT";
 
-	for (i = 0; i < NWORKERS; ++i) {
-		ret = qs[i].Init();
-		check ret >= 0, "failed to initialize event queue for worker";
-		proc ServerWorker(&qs[i]);
-	}
-
 	quit = 0;
+	rr = 0;
 	while (!quit) {
 		SockaddrIn addr;
 		Event events[64];
@@ -102,7 +124,7 @@ main()
 			Event * event;
 			event = &events[i];
 
-			Debugf("Got event %d", event->Type);
+			Debugf("[ main ]: Got event %E", event);
 
 			switch (event->Type) {
 			case EventRead:
@@ -113,9 +135,11 @@ main()
 					continue;
 				}
 
-				Infof("Accepted from %A:%d", addr.addr, addr.port);
+				Debugf("Accepted from %A:%d", addr.addr, addr.port);
 
-				close(c);
+				qs[rr++].AddSocket(c, RequestRead, TriggerEdge, nil);
+				rr %= NWORKERS;
+
 				break;
 			case EventSignal:
 				Infof("Received signal %d, exitting...", event->Identifier);
@@ -124,6 +148,12 @@ main()
 			}
 		}
 	}
+
+	PidsLock.lock();
+	for (i = 0; i < NWORKERS; ++i) {
+		kill(Pids[i], SIGTERM);
+	}
+	PidsLock.unlock();
 }
 
 

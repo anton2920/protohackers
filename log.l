@@ -2,6 +2,7 @@
 #include "hackers.h"
 
 
+intern
 byte *Level2String[] =
 {
 	[LevelDebug] "DEBUG",
