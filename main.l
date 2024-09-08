@@ -2,6 +2,7 @@
 #include "hackers.h"
 
 #define NWORKERS	5
+#define DefaultBufferSize (1 << 16)
 
 int	Pids[NWORKERS];
 int	CurrentPid;
@@ -12,36 +13,13 @@ void Problem0(EventQueue*);
 void Problem1(EventQueue*);
 
 
-#if 1
-void
-main()
-{
-	byte * jsonString;
-	int	consumed;
-	Json json;
-
-	SetLevel(LevelDebug);
-	fmtinstall('J', Jsonconv);
-
-	jsonString = "{ \"accounting\" : [	{ \"firstName\" : \"John\", \"lastName\"  : \"Doe\", \"age\"       : 23 }, { \"firstName\" : \"Mary\", \"lastName\"  : \"Smith\", \"age\"      : 32 }], \"sales\"      : [ { \"firstName\" : \"Sally\", \"lastName\"  : \"Green\", \"age\"      : 27 }, { \"firstName\" : \"Jim\", \"lastName\"  : \"Galley\", \"age\"       : 41 } ] }";
-
-	consumed = ParseJson(jsonString, strlen(jsonString), &json);
-	if (consumed < 0) {
-		Errorf("Failed to parse JSON: %r\n");
-		return;
-	}
-	print("%J\n", json);
-}
-
-
-#else
 void
 main()
 {
 	EventQueue qs[NWORKERS], q;
 	int	i, l, ret, quit, rr;
 
-	// SetLevel(LevelDebug);
+	SetLevel(LevelDebug);
 	fmtinstall('A', Addrconv);
 	fmtinstall('E', Eventconv);
 	fmtinstall('J', Jsonconv);
@@ -80,6 +58,7 @@ main()
 	while (!quit) {
 		SockaddrIn addr;
 		Event events[64];
+		Circular * buffer;
 		uint addrlen;
 		int	c, n;
 
@@ -106,9 +85,11 @@ main()
 
 				Debugf("Accepted from %A:%d", addr.addr, addr.port);
 
-				qs[rr++].AddSocket(c, RequestRead, TriggerEdge, nil);
-				rr %= NWORKERS;
+				alloc buffer;
+				buffer->Init(DefaultBufferSize);
 
+				qs[rr++].AddSocket(c, RequestRead, TriggerEdge, buffer);
+				rr %= NWORKERS;
 				break;
 			case EventSignal:
 				Infof("Received signal %d, exitting...", event->Identifier);
@@ -125,6 +106,4 @@ main()
 	PidsLock.unlock();
 }
 
-
-#endif
 

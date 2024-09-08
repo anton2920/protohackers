@@ -16,8 +16,7 @@ enum JsonTokenType {
 	JsonTokenNull,
 	JsonTokenFalse,
 	JsonTokenTrue,
-	JsonTokenInteger,
-	JsonTokenReal,
+	JsonTokenNumber,
 	JsonTokenString,
 };
 
@@ -28,8 +27,7 @@ aggr JsonToken
 	int	Len;
 	union
 	 {
-		int	Integer;
-		float	Real;
+		float	Number;
 		byte * String;
 	};
 };
@@ -56,11 +54,10 @@ intern
 int
 tokenizeJson(byte *data, int size, JsonTokens *tokens)
 {
+	int	pos, offset, ntokens;
 	byte * end, *endptr;
 	JsonToken * token;
-	int	pos, ntokens;
-	float	fnum;
-	int	inum;
+	float	num;
 
 	tokens->Len = 0;
 	tokens->Cap = DefaultCapacity;
@@ -131,29 +128,34 @@ tokenizeJson(byte *data, int size, JsonTokens *tokens)
 			pos += 4;
 			break;
 		case '"':
-			end = strchr(&data[pos+1], '"');
-			if (end == nil) {
-				werrstr("malformed string at pos %d", pos);
-				raise;
+			offset = 0;
+			while (1) {
+				end = strchr(&data[pos+offset+1], '"');
+				if (end == nil) {
+					werrstr("malformed string at pos %d", pos);
+					raise;
+				}
+				if (*(end-1) != '\\') {
+					break;
+				}
+				offset = end - &data[pos+1] + 1;
 			}
 
 			token->Type = JsonTokenString;
 			token->String = &data[pos+1];
 			token->Len = end - &data[pos+1];
 			pos += token->Len + 2;
-
 			break;
 		default:
-			inum = strtoi(&data[pos], &endptr, 0);
-			if (*endptr != '.') {
-				token->Type = JsonTokenInteger;
-				token->Integer = inum;
-				pos += endptr - &data[pos];
-				break;
+			num = strtof(&data[pos], &endptr);
+			if ((*endptr != ',') && (*endptr != '}') && (*endptr != ']') && (!isspace(*endptr))) {
+				werrstr("invaild token '%c' at pos %d", data[pos], pos);
+				raise;
 			}
 
-			werrstr("invaild token '%c' at pos %d", data[pos], pos);
-			raise;
+			token->Type = JsonTokenNumber;
+			token->Number = num;
+			pos += endptr - &data[pos];
 		}
 
 		if (++tokens->Len > tokens->Cap) {
@@ -317,7 +319,7 @@ parseJsonObject(JsonTokens *tokens, int start, JsonObject *object)
 	check object->Values != nil, "failed to allocate JSON values array";
 
 	pos = start;
-	while (pos  < tokens->Len) {
+	while (pos  < tokens->Len - 1) {
 		token = &tokens->Tokens[pos];
 
 		if (pos - start > 0) {
@@ -366,6 +368,13 @@ parseJsonObject(JsonTokens *tokens, int start, JsonObject *object)
 		}
 	}
 
+	ret = parseJsonRbrace(tokens, pos);
+	if (ret < 0) {
+		werrstr("failed to parse '}': %r");
+		raise;
+	}
+	pos += ret;
+
 	return pos - start;
 }
 
@@ -398,7 +407,7 @@ parseJsonArray(JsonTokens *tokens, int start, JsonArray *array)
 	check array->Values != nil, "failed to allocate JSON values array";
 
 	pos = start;
-	while (pos < tokens->Len) {
+	while (pos < tokens->Len - 1) {
 		token = &tokens->Tokens[pos];
 
 		if (pos - start > 0) {
@@ -428,6 +437,13 @@ parseJsonArray(JsonTokens *tokens, int start, JsonArray *array)
 			check array->Values != nil, "failed to reallocate JSON array values array";
 		}
 	}
+
+	ret = parseJsonRbracket(tokens, pos);
+	if (ret < 0) {
+		werrstr("failed to parse ']': %r");
+		raise;
+	}
+	pos += ret;
 
 	return pos - start;
 }
@@ -461,13 +477,14 @@ parseJsonValue(JsonTokens *tokens, int start, JsonValue *value)
 		value->Type = JsonBoolean;
 		value->Boolean = true;
 		break;
-	case JsonTokenInteger:
-		value->Type = JsonInteger;
-		value->Integer = token->Integer;
-		break;
-	case JsonTokenReal:
-		value->Type = JsonReal;
-		value->Real = token->Real;
+	case JsonTokenNumber:
+		if (ceil(token->Number) - floor(token->Number) < 1e-9) {
+			value->Type = JsonInteger;
+			value->Integer = (int) token->Number;
+		} else {
+			value->Type = JsonReal;
+			value->Real = token->Number;
+		}
 		break;
 	case JsonTokenString:
 		value->Type = JsonString;
@@ -672,14 +689,12 @@ printJsonValue(Printspec *p, JsonValue *value)
 int
 Jsonconv(Printspec *p)
 {
-	byte buffer[1024];
 	Json * json;
 
 	json = (Json * )p->o;
 	switch (json->Type) {
 	case JsonObj:
 		printJsonObject(p, &json->Object);
-		strconv(p, buffer);
 		break;
 	case JsonArr:
 		printJsonArray(p, &json->Array);

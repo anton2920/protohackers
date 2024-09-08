@@ -14,13 +14,20 @@ int
 TCPListen(uint addr, usint port, int backlog)
 {
 	SockaddrIn sin;
-	int	ret;
+	int	ret, one;
 	int	l;
 
 	l = socket(PF_INET, SOCK_STREAM, 0);
 	if (l < 0) {
 		werrstr("failed to create new socket: %r");
 		return - 1;
+	}
+
+	one = 1;
+	ret = setsockopt(l, SOL_SOCKET, SO_REUSEADDR, (byte * ) & one, sizeof one);
+	if (ret < 0) {
+		werrstr("failed to set socket option: %r");
+		return -1;
 	}
 
 	sin.family = AF_INET;

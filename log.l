@@ -20,7 +20,7 @@ intern Lock LogLock;
 void
 Logf(Level level, byte *format, void *argp)
 {
-	byte buffer[1024];
+	byte buffer[4096];
 	byte date[100];
 	byte * end;
 	Tm * tm;

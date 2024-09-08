@@ -6,6 +6,26 @@ enum bool {
 };
 
 
+/* circular.l */
+adt Circular
+{
+	byte	*buf;
+	int	len;
+
+	int	head;
+	int	tail;
+
+	int	Init(*Circular, int);
+	void	Consume(*Circular, int);
+	void	Produce(*Circular, int);
+	byte	 * Remaining(*Circular);
+	int	RemainingSpace(*Circular);
+	byte	 * Unconsumed(*Circular);
+	int	UnconsumedLen(*Circular);
+	void	Free(*Circular);
+};
+
+
 /* event.l */
 enum Request {
 	RequestRead = 1 << 0,
