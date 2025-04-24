@@ -1,8 +1,7 @@
 #include <alef.h>
 #include "hackers.h"
 
-#define NWORKERS	5
-#define DefaultBufferSize (1 << 16)
+#define NWORKERS	1
 
 int	Pids[NWORKERS];
 int	CurrentPid;
@@ -11,13 +10,14 @@ Lock	PidsLock;
 
 void Problem0(EventQueue*);
 void Problem1(EventQueue*);
-
+void Problem2(EventQueue*);
 
 void
 main()
 {
 	EventQueue qs[NWORKERS], q;
 	int	i, l, ret, quit, rr;
+	ClientData2 data;
 
 	SetLevel(LevelDebug);
 	fmtinstall('A', Addrconv);
@@ -32,7 +32,7 @@ main()
 	for (i = 0; i < NWORKERS; ++i) {
 		ret = qs[i].Init();
 		check ret >= 0, "failed to initialize event queue for worker";
-		proc Problem1(&qs[i]);
+		proc Problem2(&qs[i]);
 	}
 
 	ret = q.Init();
@@ -85,10 +85,9 @@ main()
 
 				Debugf("Accepted from %A:%d", addr.addr, addr.port);
 
-				alloc buffer;
-				buffer->Init(DefaultBufferSize);
+				InitClientData2(&data);
 
-				qs[rr++].AddSocket(c, RequestRead, TriggerEdge, buffer);
+				qs[rr++].AddSocket(c, RequestRead, TriggerEdge, &data);
 				rr %= NWORKERS;
 				break;
 			case EventSignal:
