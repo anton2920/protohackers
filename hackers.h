@@ -1,10 +1,14 @@
 #define ArrayLength(arr) sizeof(arr) / sizeof((arr)[0])
 #define DefaultBufsize (1 << 16)
+#define NWORKERS	5
 
 enum bool {
 	false,
 	true,
 };
+
+/* main.l */
+void	ProcInit();
 
 /* array.l */
 int	ArrayInsertAt(int*, int, int, int, int);
@@ -14,7 +18,7 @@ void	ArrayPrint(int*, int);
 /* circular.l */
 adt Circular
 {
-	byte	*buf;
+	byte	 * buf;
 	int	len;
 
 	int	head;
@@ -162,20 +166,3 @@ int	IgnoreSignal(int);
 
 /* tcp.l */
 int	TCPListen(uint, usint, int);
-
-/* problem2.l */
-aggr ClientItems
-{
-	int *Prices;
-	int *Times;
-	int Len;
-	int Cap;
-};
-
-aggr ClientData2
-{
-	Circular Buffer;
-	ClientItems Items;
-};
-
-void	InitClientData2(ClientData2*);

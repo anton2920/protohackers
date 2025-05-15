@@ -12,7 +12,7 @@ extern Lock	PidsLock;
 
 intern
 int
-IsPrime(int x)
+isPrime(int x)
 {
 	int	i;
 
@@ -34,8 +34,9 @@ IsPrime(int x)
 }
 
 
+intern
 int
-ParseRequest(Circular *buffer, Json *jsons, bool *valids, int njsons)
+parseRequest(Circular *buffer, Json *jsons, bool *valids, int njsons)
 {
 	int	unconsumedLen;
 	byte * unconsumed;
@@ -71,8 +72,9 @@ ParseRequest(Circular *buffer, Json *jsons, bool *valids, int njsons)
 }
 
 
+intern
 bool
-ProduceResponse(byte *response, int size, Json *json, bool valid)
+produceResponse(byte *response, int size, Json *json, bool valid)
 {
 	int	i;
 
@@ -95,21 +97,21 @@ ProduceResponse(byte *response, int size, Json *json, bool valid)
 			if ((method->Type == JsonString) && (strcmp(method->String, "isPrime") == 0)) {
 				number = &json->Object.Values[numberPos];
 				if ((number->Type == JsonInteger) || (number->Type == JsonReal)) {
-					bool isPrime;
+					bool prime;
 
-					isPrime = false;
+					prime = false;
 					switch number->Type {
 					case JsonInteger:
 						Debugf("Number (int) = %d", number->Integer);
-						isPrime = IsPrime(number->Integer);
+						prime = isPrime(number->Integer);
 						break;
 					case JsonReal:
 						Debugf("Number (float) = %g", number->Real);
-						isPrime = false;
+						prime = false;
 						break;
 					}
 
-					if (isPrime) {
+					if (prime) {
 						strncpy(response, "{\"method\":\"isPrime\",\"prime\":true}\n", size);
 					} else {
 						strncpy(response, "{\"method\":\"isPrime\",\"prime\":false}\n", size);
@@ -126,8 +128,9 @@ ProduceResponse(byte *response, int size, Json *json, bool valid)
 }
 
 
+intern
 void
-Problem1(EventQueue *q)
+worker(EventQueue *q)
 {
 	int	nbytes, njsons, bytesRead;
 	bool valids[BatchSize];
@@ -177,14 +180,14 @@ Problem1(EventQueue *q)
 				Debugf("Payload = '%.*s'", buffer->UnconsumedLen(), buffer->Unconsumed());
 
 				while (true) {
-					njsons = ParseRequest(buffer, jsons, valids, BatchSize);
+					njsons = parseRequest(buffer, jsons, valids, BatchSize);
 					Debugf("Got %d jsons", njsons);
 					if (njsons == 0) {
 						break;
 					}
 
 					for (i = 0; i < njsons; ++i) {
-						ok = ProduceResponse(response, sizeof response, &jsons[i], valids[i]);
+						ok = produceResponse(response, sizeof response, &jsons[i], valids[i]);
 						if (write(event->Identifier, response, strlen(response)) < 0) {
 							Errorf("Failed to write data to client: %r");
 							goto closeConnection;
@@ -206,6 +209,70 @@ closeConnection:
 			close(event->Identifier);
 			buffer->Free();
 			unalloc buffer;
+		}
+	}
+}
+
+
+void
+Problem1(sint port)
+{
+	EventQueue qs[NWORKERS], q;
+	Circular * buffer;
+	int	i, l, ret, rr;
+
+	ProcInit();
+
+	l = TCPListen(INADDR_ANY, port, 128);
+	check l >= 0, "failed to listen on TCP socket";
+
+	Infof("Listening on 0.0.0.0:%d...", port);
+
+	for (i = 0; i < NWORKERS; ++i) {
+		ret = qs[i].Init();
+		check ret >= 0, "failed to initialize event queue for worker";
+		proc worker(&qs[i]);
+	}
+
+	ret = q.Init();
+	check ret >= 0, "failed to initialize event queue";
+
+	ret = q.AddSocket(l, RequestRead, TriggerEdge, nil);
+	check ret >= 0, "failed to add socket to event queue";
+
+	rr = 0;
+	while (1) {
+		SockaddrIn addr;
+		Event events[64];
+		uint addrlen;
+		int	c, n;
+
+		n = q.GetEvents(events, ArrayLength(events));
+		if (n < 0) {
+			Errorf("Failed to get events from queue: %r");
+			continue;
+		}
+
+		for (i = 0; i < n; ++i) {
+			Event * event;
+			event = &events[i];
+
+			Debugf("[ main ]: Got event %E", event);
+
+			addrlen = sizeof addr;
+			c = _accept(l, (Sockaddr * ) & addr, &addrlen);
+			if (c < 0) {
+				Errorf("Failed to accept incoming connection: %r");
+				continue;
+			}
+
+			Debugf("Accepted from %A:%d", addr.addr, addr.port);
+
+			alloc buffer;
+			buffer->Init(DefaultBufsize);
+
+			qs[rr++].AddSocket(c, RequestRead, TriggerEdge, buffer);
+			rr %= NWORKERS;
 		}
 	}
 }

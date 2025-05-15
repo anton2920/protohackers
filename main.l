@@ -1,45 +1,41 @@
 #include <alef.h>
 #include "hackers.h"
 
-#define NWORKERS	5
-
-int	Pids[NWORKERS];
+int	Pids[NWORKERS+1];
 int	CurrentPid;
 Lock	PidsLock;
 
+void Problem0(sint);
+void Problem1(sint);
+void Problem2(sint);
 
-void Problem0(EventQueue*);
-void Problem1(EventQueue*);
-void Problem2(EventQueue*);
+void
+ProcInit()
+{
+	PidsLock.lock();
+	Pids[CurrentPid++] = getpid();
+	PidsLock.unlock();
+}
+
 
 void
 main()
 {
-	EventQueue qs[NWORKERS], q;
-	int	i, l, ret, quit, rr;
-	ClientData2 * data;
+	EventQueue q;
+	int	quit, ret;
+	int	i;
 
 	SetLevel(LevelDebug);
 	fmtinstall('A', Addrconv);
 	fmtinstall('E', Eventconv);
 	fmtinstall('J', Jsonconv);
 
-	l = TCPListen(INADDR_ANY, 12345, 128);
-	check l >= 0, "failed to listen on TCP socket";
-
-	Infof("Listening on 0.0.0.0:12345...");
-
-	for (i = 0; i < NWORKERS; ++i) {
-		ret = qs[i].Init();
-		check ret >= 0, "failed to initialize event queue for worker";
-		proc Problem2(&qs[i]);
-	}
+	proc Problem0(12340);
+	proc Problem1(12341);
+	proc Problem2(12342);
 
 	ret = q.Init();
 	check ret >= 0, "failed to initialize event queue";
-
-	ret = q.AddSocket(l, RequestRead, TriggerEdge, nil);
-	check ret >= 0, "failed to add socket to event queue";
 
 	ret = IgnoreSignal(SIGTERM);
 	check ret >= 0, "failed to ignore SIGTERM";
@@ -54,48 +50,18 @@ main()
 	check ret >= 0, "failed to add SIGINT";
 
 	quit = 0;
-	rr = 0;
 	while (!quit) {
-		SockaddrIn addr;
-		Event events[64];
-		uint addrlen;
-		int	c, n;
+		Event event;
+		int	n;
 
-		n = q.GetEvents(events, ArrayLength(events));
+		n = q.GetEvents(&event, 1);
 		if (n < 0) {
 			Errorf("Failed to get events from queue: %r");
 			continue;
 		}
 
-		for (i = 0; i < n; ++i) {
-			Event * event;
-			event = &events[i];
-
-			Debugf("[ main ]: Got event %E", event);
-
-			switch (event->Type) {
-			case EventRead:
-				addrlen = sizeof addr;
-				c = _accept(l, (Sockaddr * ) & addr, &addrlen);
-				if (c < 0) {
-					Errorf("Failed to accept incoming connection: %r");
-					continue;
-				}
-
-				Debugf("Accepted from %A:%d", addr.addr, addr.port);
-
-				alloc data;
-				InitClientData2(data);
-
-				qs[rr++].AddSocket(c, RequestRead, TriggerEdge, data);
-				rr %= NWORKERS;
-				break;
-			case EventSignal:
-				Infof("Received signal %d, exitting...", event->Identifier);
-				quit = 1;
-				break;
-			}
-		}
+		Infof("Received signal %d, exitting...", event.Identifier);
+		quit = 1;
 	}
 
 	PidsLock.lock();
