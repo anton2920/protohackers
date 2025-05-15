@@ -39,7 +39,7 @@ TCPListen(uint addr, usint port, int backlog)
 		return - 1;
 	}
 
-	ret = _listen(l, 128);
+	ret = _listen(l, backlog);
 	if (ret < 0) {
 		werrstr("failed to start listening on socket: %r");
 		return - 1;

@@ -4,8 +4,7 @@
 #define PageSize 4096
 
 
-intern byte	*currentBase = (void *)
-0xA0000000;
+intern byte	*currentBase = (void *)0xA0000000;
 intern Lock	baseLock;
 
 

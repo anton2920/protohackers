@@ -24,7 +24,7 @@ IsPrime(int x)
 		return 0;
 	}
 
-	for (i = 3; i < (int) ceil(sqrt(x)); ++i) {
+	for (i = 3; i * i <= x; ++i) {
 		if (x % i == 0) {
 			return 0;
 		}
@@ -97,6 +97,7 @@ ProduceResponse(byte *response, int size, Json *json, bool valid)
 				if ((number->Type == JsonInteger) || (number->Type == JsonReal)) {
 					bool isPrime;
 
+					isPrime = false;
 					switch number->Type {
 					case JsonInteger:
 						Debugf("Number (int) = %d", number->Integer);

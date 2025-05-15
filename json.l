@@ -54,8 +54,8 @@ intern
 int
 tokenizeJson(byte *data, int size, JsonTokens *tokens)
 {
-	int	pos, offset, ntokens;
 	byte * end, *endptr;
+	int	pos, offset;
 	JsonToken * token;
 	float	num;
 
@@ -129,6 +129,7 @@ tokenizeJson(byte *data, int size, JsonTokens *tokens)
 			break;
 		case '"':
 			offset = 0;
+			end = nil;
 			while (1) {
 				end = strchr(&data[pos+offset+1], '"');
 				if (end == nil) {
@@ -293,7 +294,6 @@ intern
 int
 parseJsonObject(JsonTokens *tokens, int start, JsonObject *object)
 {
-	JsonToken * token;
 	int	pos, ret;
 
 	if (start >= tokens->Len) {
@@ -320,8 +320,6 @@ parseJsonObject(JsonTokens *tokens, int start, JsonObject *object)
 
 	pos = start;
 	while (pos  < tokens->Len - 1) {
-		token = &tokens->Tokens[pos];
-
 		if (pos - start > 0) {
 			ret = parseJsonRbrace(tokens, pos);
 			if (ret > 0) {
@@ -383,7 +381,6 @@ intern
 int
 parseJsonArray(JsonTokens *tokens, int start, JsonArray *array)
 {
-	JsonToken * token;
 	int	pos, ret;
 
 	if (start >= tokens->Len) {
@@ -408,8 +405,6 @@ parseJsonArray(JsonTokens *tokens, int start, JsonArray *array)
 
 	pos = start;
 	while (pos < tokens->Len - 1) {
-		token = &tokens->Tokens[pos];
-
 		if (pos - start > 0) {
 			ret = parseJsonRbracket(tokens, pos);
 			if (ret > 0) {

@@ -1,7 +1,7 @@
 #include <alef.h>
 #include "hackers.h"
 
-#define NWORKERS	1
+#define NWORKERS	5
 
 int	Pids[NWORKERS];
 int	CurrentPid;
@@ -17,7 +17,7 @@ main()
 {
 	EventQueue qs[NWORKERS], q;
 	int	i, l, ret, quit, rr;
-	ClientData2 data;
+	ClientData2 * data;
 
 	SetLevel(LevelDebug);
 	fmtinstall('A', Addrconv);
@@ -58,7 +58,6 @@ main()
 	while (!quit) {
 		SockaddrIn addr;
 		Event events[64];
-		Circular * buffer;
 		uint addrlen;
 		int	c, n;
 
@@ -85,9 +84,10 @@ main()
 
 				Debugf("Accepted from %A:%d", addr.addr, addr.port);
 
-				InitClientData2(&data);
+				alloc data;
+				InitClientData2(data);
 
-				qs[rr++].AddSocket(c, RequestRead, TriggerEdge, &data);
+				qs[rr++].AddSocket(c, RequestRead, TriggerEdge, data);
 				rr %= NWORKERS;
 				break;
 			case EventSignal:

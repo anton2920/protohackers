@@ -126,7 +126,7 @@ Eventconv(Printspec *p)
 	Event * event;
 
 	event = *(Event * *)p->o;
-	snprint(buffer, sizeof buffer, "{ID = %d, Type = %s, Data = %d, EOF = %d, UserData = %#uX}", event->Identifier, EventType2String[-event->Type], event->Data[0], event->EndOfFile(), event->UserData);
+	snprint(buffer, sizeof buffer, "{ID = %d, Type = %s, Data = %d, EOF = %d, UserData = 0x%uX}", event->Identifier, EventType2String[-event->Type], event->Data[0], event->EndOfFile(), event->UserData);
 	strconv(p, buffer);
 
 	return sizeof(Event * );

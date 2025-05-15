@@ -10,13 +10,14 @@ ArrayInsertAt(int *array, int len, int cap, int value, int pos)
 	memmove(&array[pos+1], &array[pos], (len - pos) * sizeof(array[0]));
 	array[pos] = value;
 
-	return len+1;
+	return len + 1;
 }
+
 
 int
 ArrayFind(int *array, int len, int value)
 {
-	int i;
+	int	i;
 
 	for (i = 0; i < len; i++) {
 		if (value == array[i]) {
@@ -24,13 +25,14 @@ ArrayFind(int *array, int len, int value)
 		}
 	}
 
-	return -1;
+	return - 1;
 }
+
 
 void
 ArrayPrint(int *array, int n)
 {
-	int i;
+	int	i;
 
 	for (i = 0; i < n; i++) {
 		if (i > 0) {
@@ -40,3 +42,5 @@ ArrayPrint(int *array, int n)
 	}
 	print("\n");
 }
+
+
